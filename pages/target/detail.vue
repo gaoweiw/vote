@@ -13,50 +13,10 @@
 							<li>保费</li>
 						</ul>
 					</view>
-					<view class="text">
-						<div>大一区：</div>
-						<div>姓名</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>大二区：</div>
-						<div>李四光</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>石一区：</div>
-						<div>王晓峰</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>大一区：</div>
-						<div>姓名</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>大二区：</div>
-						<div>李四光</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>石一区：</div>
-						<div>王晓峰</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>大一区：</div>
-						<div>姓名</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>大二区：</div>
-						<div>李四光</div>
-						<div>984654</div>
-					</view>
-					<view class="text">
-						<div>石一区：</div>
-						<div>王晓峰</div>
-						<div>984654</div>
+					<view class="text" v-for="item in tableList">
+						<div>{{item.name}}区：</div>
+						<div>{{item.userName}}</div>
+						<div>{{item.premium}}</div>
 					</view>
 				</view>
 			</uni-section>
@@ -65,17 +25,21 @@
 </template>
 
 <script>
+	import baseUrl from '@/util/baseUrl';
 	export default {
 		data() {
 			return {
 				chartData: {},
 				opts: {},
+				tableList: [],
+				arrayList: ['大一', '大二', '石一', '石二', '江北', '沙区', '金阳', '万达', '奥体', '嘉州'],
 			}
 		},
 		onShow() {
 			this.opts = {
 				color: ["#FB243A", "#24F8F2", "#3EAEFF"],
 				padding: [15, 15, 0, 5],
+				height: 300,
 				legend: {
 					position: 'top',
 					fontColor: "#FFFFFF",
@@ -87,6 +51,7 @@
 					disableGrid: true,
 				},
 				yAxis: {
+					disabled: true,
 					disableGrid: true, //不绘制横向网格
 					data: [{
 						fontColor: "#FFFFFF",
@@ -108,35 +73,85 @@
 		},
 		methods: {
 			getServerData() {
-				//模拟从服务器获取数据时的延时
-				setTimeout(() => {
-					//模拟服务器返回数据，如果数据格式和标准格式不同，需自行按下面的格式拼接
+				uni.request({
+					url: `${baseUrl}/auth/target/list`,
+					success: (response) => {
+						//表格数据
+						this.tableList = response.data.data.list2;
 
-					this.bjWidth = '20%'
-					let res = {
-						categories: ['大一', '大二', '石一', '石二', '江北', '沙区', '金阳', '万达', '奥体', '嘉州'],
-						series: [{
-								name: '总保费',
-								textColor: '#FFFFFF',
-								textSize: 10,
-								data: [35, 2, 31, 33, 13, 34, 33, 13, 34, 79]
-							},
-							{
-								name: '总件数',
-								textColor: '#FFFFFF',
-								textSize: 10,
-								data: [35, 3, 31, 3, 13, 124, 3, 13, 34, 58]
-							},
-							{
-								name: '总旅游名额',
-								textColor: '#FFFFFF',
-								textSize: 10,
-								data: [35, 36, 61, 12, 13, 39, 13, 0, 84, 38]
+						//图表数据
+
+						let chartData = response.data.data.list;
+						let premiumMax = []; //总保费
+						let numberMax = []; //总件数
+						let quotaMax = []; //总旅游名额
+						console.log(chartData)
+
+						this.arrayList.forEach(item => {
+							let d = chartData.filter(s => item == s.name);
+							console.log(d)
+							if (d.length > 0) {
+
+								// 总保费：以万单位
+								// 超过万以上四舍五入
+								// 万以下用0.几万表示，不四舍五入
+								premiumMax.push(d[0].premium);
+								numberMax.push(d[0].number);
+								quotaMax.push(d[0].quota);
+							} else {
+								premiumMax.push(0);
+								numberMax.push(0);
+								quotaMax.push(0);
 							}
-						]
-					};
-					this.chartData = JSON.parse(JSON.stringify(res));
-				}, 500);
+						})
+
+						console.log(premiumMax, numberMax, quotaMax)
+
+
+						let res = {
+							categories: this.arrayList,
+							series: [{
+									name: '总保费',
+									textColor: '#FFFFFF',
+									format: 'targetFormat',
+									textSize: 10,
+									data: premiumMax
+								},
+								{
+									name: '总件数',
+									textColor: '#FFFFFF',
+									textSize: 10,
+									data: numberMax
+								},
+								{
+									name: '总旅游名额',
+									textColor: '#FFFFFF',
+									textSize: 10,
+									data: quotaMax
+								}
+							]
+						};
+						this.chartData = JSON.parse(JSON.stringify(res));
+
+						console.log(this.formatNumber(1))
+						console.log(this.formatNumber(15999))
+					},
+				})
+			},
+			formatNumber(num) {
+				// 总保费：以万单位
+				// 超过万以上四舍五入
+				// 万以下用0.几万表示，不四舍五入
+				let n = Number(num);
+				let result = '';
+				if (n > 10000) {
+					let w = (n / 10000).toString();
+					result = w.substring(0, w.indexOf(".") + 2);
+				} else {
+					let w = (n / 10000).toString();
+					result = w.substring(0, w.indexOf(".") + 2);
+				}
+				return result;
 			}
 		},
 	}

@@ -66,12 +66,15 @@
 	import bg0 from "@/static/vote/bj.png";
 	import bg1 from "@/static/vote/nm.png";
 	import bg2 from "@/static/vote/xj.png";
+	import baseUrl from '@/util/baseUrl';
 	export default {
 		data() {
 			return {
 				items: ['北京', '内蒙', '新疆'],
 				current: 0,
-				bgk: `url(${bg0}) no-repeat`
+				bgk: `url(${bg0}) no-repeat`,
+				voteNum: 0,
+				isRun: true,
 			};
 		},
 		methods: {
@@ -88,15 +91,55 @@
 				}
 			},
 			voteClick() {
-				this.$refs.popup.open()
+				//每个人只能投票两次，结束时间10月12日
+				let nowTime = Date.now();
+				let endTime = (new Date('2022/10/12 23:59:59')).valueOf()
+				console.log()
+				if (nowTime > endTime) {
+					uni.showToast({
+						icon: 'error',
+						title: ' 投票已经结束 ',
+					})
+					return;
+				}
+
+				this.voteNum = window.localStorage.getItem('voteNmuber');
+				if (this.voteNum >= 2) {
+					uni.showToast({
+						icon: 'error',
+						title: ' 每人只能投两次 ',
+					})
+				} else {
+					this.voteRequest();
+
+				}
+			},
+			voteRequest() {
+				if (!this.isRun) return;
+				this.isRun = false;
+				uni.request({
+					url: `${baseUrl}/auth/vote/save`,
+					method: "POST",
+					data: {
+						cityId: this.current + 1,
+						city: this.current + 1,
+						cityName: this.current == 0 ? '北京' : this.current == 1 ? '内蒙' : this.current == 2 ? '新疆' :
+							''
+					},
+					success: (res) => {
+						this.$refs.popup.open();
+						window.localStorage.setItem('voteNmuber', Number(this.voteNum) + 1); //投票次数
+						this.isRun = true;
+					}
+				});
 			},
 			close() {
 				this.$refs.popup.close()
 			},
-			jumpResult(){
+			jumpResult() {
 				uni.navigateTo({
 					url: '/pages/vote/detail',
-					animationType:'slide-in-right',
+					animationType: 'slide-in-right',
 				});
 			}
 		}
@@ -146,13 +189,13 @@
 
 		.vote-result {
 			position: absolute;
-			top:10px;
+			top: 10px;
 			right: 0;
 			width: 64px;
 			height: 21px;
 			line-height: 21px;
 			background: rgb(255, 30, 30);
-			color:#FFFFFF;
+			color: #FFFFFF;
 			text-align: center;
 			font-size: 11px;
 			border-radius: 20px 0px 0px 20px;

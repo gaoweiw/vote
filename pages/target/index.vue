@@ -4,21 +4,22 @@
 			<uni-section title="录入信息" class="result-box" type="line">
 
 				<uni-forms class="form-box" :modelValue="formData" :label-width="120">
-					<uni-forms-item name="hobby" label="营 业 区">
-						<uni-data-select v-model="formData.value" placeholder="请筛选" :localdata="range">
+					<uni-forms-item name="code" label="营 业 区">
+						<uni-data-select @change="rangeChange" v-model="formData.code" placeholder="请筛选"
+							:localdata="range">
 						</uni-data-select>
 					</uni-forms-item>
 					<uni-forms-item label="姓　 名" name="name">
-						<input type="text" v-model="formData.name" placeholder="请输入姓名" />
+						<input type="text" v-model.trim="formData.userName" placeholder="请输入姓名" />
 					</uni-forms-item>
-					<uni-forms-item label="1108保费" name="age">
-						<input type="text" v-model="formData.age" placeholder="请输入保费" />
+					<uni-forms-item label="1108保费" name="premium">
+						<input type="number" v-model.trim="formData.premium" placeholder="请输入保费" />
 					</uni-forms-item>
-					<uni-forms-item label="1108件数" name="name">
-						<input type="text" v-model="formData.age" placeholder="请输入件数" />
+					<uni-forms-item label="1108件数" name="number">
+						<input type="number" v-model.trim="formData.number" placeholder="请输入件数" />
 					</uni-forms-item>
-					<uni-forms-item label="1108旅游名额" name="name">
-						<input type="text" v-model="formData.age" placeholder="请输入旅游名额" />
+					<uni-forms-item label="1108旅游名额" name="quota">
+						<input type="number" v-model.trim="formData.quota" placeholder="请输入旅游名额" />
 					</uni-forms-item>
 
 				</uni-forms>
@@ -42,17 +43,23 @@
 </template>
 
 <script>
+	import baseUrl from '@/util/baseUrl';
 	export default {
 		data() {
 			return {
 				formData: {
-					name: '',
-					age: '',
-					hobby: '',
+					code: "",
+					name: "",
+					userName: "",
+					premium: "",
+					number: "",
+					quota: "",
 				},
 				value: 1,
 				textArray: ['大一', '大二', '石一', '石二', '江北', '沙区', '金阳', '万达', '奥体', '嘉州'],
-				range: []
+				range: [],
+				targetNum: 0,
+				isRun: true,
 			};
 		},
 		onLoad() {
@@ -71,10 +78,100 @@
 		},
 		methods: {
 			submitClick() {
-				this.$refs.popup.open()
+				//每个人只能录入两次，结束时间10月15日
+				let nowTime = Date.now();
+				let endTime = (new Date('2022/10/15 23:59:59')).valueOf();
+
+				if (nowTime > endTime) {
+					uni.showToast({
+						icon: 'error',
+						title: '录入已经结束 ',
+					})
+					return;
+				}
+
+				this.targetNum = window.localStorage.getItem('targetNmuber');
+				if (this.targetNum >= 2) {
+					uni.showToast({
+						icon: 'error',
+						title: '每人只能录入两次 ',
+					})
+				} else {
+					this.targetRequest();
+				}
+			},
+			targetRequest() {
+
+
+				if (!this.formData.code) {
+					uni.showToast({
+						icon: 'error',
+						title: '请选择营业区',
+					})
+					return;
+				} else if (!this.formData.userName) {
+					uni.showToast({
+						icon: 'error',
+						title: '请填写姓名',
+					})
+					return;
+				} else if (!this.formData.premium) {
+					uni.showToast({
+						icon: 'error',
+						title: '请填写保费',
+					})
+					return;
+				} else if (this.formData.premium < 1000) {
+					uni.showToast({
+						icon: 'error',
+						title: '保费必须大于等于1000',
+					})
+					return;
+				} else if (!this.formData.number) {
+					uni.showToast({
+						icon: 'error',
+						title: '请填写件数',
+					})
+					return;
+				} else if (!this.formData.quota) {
+					uni.showToast({
+						icon: 'error',
+						title: '请填写名额',
+					})
+					return;
+				}
+				if (!this.isRun) return;
+				this.isRun = false;
+				uni.request({
+					url: `${baseUrl}/auth/target/save`,
+					method: "POST",
+					data: this.formData,
+					success: (res) => {
+						this.$refs.popup.open();
+						window.localStorage.setItem('targetNmuber', Number(this.targetNum) + 1); //录入次数
+
+						this.formData = {
+							code: "",
+							name: "",
+							userName: "",
+							premium: "",
+							number: "",
+							quota: "",
+						}
+						this.isRun = true;
+					}
+				});
 			},
 			close() {
 				this.$refs.popup.close()
+			},
+			rangeChange(e) {
+				console.log(e);
+				if (e) {
+					this.formData.name = this.textArray[e - 1];
+				} else {
+					this.formData.name = '';
+				}
 			},
 			jumpResult() {
 				uni.navigateTo({
@@ -93,7 +190,7 @@
 <style lang="scss" scoped>
 	.content-box {
 		position: relative;
-		height: calc(100vh - 44px);
+		height: 100vh;
 		background: url("@/static/target/bgk.png") no-repeat;
 		background-size: cover;
 

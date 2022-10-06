@@ -5,36 +5,15 @@
 				<qiun-data-charts type="column" :opts="opts" :chartData="chartData" />
 			</view>
 			<uni-section title="投票结果" class="result-box" type="line">
-				<view class="item-box">
+				<view class="item-box" v-for="item in resultArray">
 					<view class="title">
-						北京：
+						{{item.cityName}}：
 					</view>
 					<view class="bar">
-						<view class="bar-color" :style="{'width':bjWidth,'background':'#FF1E1E'}"></view>
-						<view class="bar-text">
-							300票
+						<view class="bar-color" :style="{'width':item.percent + '%','background':item.background}">
 						</view>
-					</view>
-				</view>
-				<view class="item-box">
-					<view class="title">
-						内蒙：
-					</view>
-					<view class="bar">
-						<view class="bar-color" :style="{'width':nmWidth,'background':'#24F8F2'}"></view>
 						<view class="bar-text">
-							300票
-						</view>
-					</view>
-				</view>
-				<view class="item-box">
-					<view class="title">
-						新疆：
-					</view>
-					<view class="bar">
-						<view class="bar-color" :style="{'width':xjWidth,'background':'#3EAEFF'}"></view>
-						<view class="bar-text">
-							300票
+							{{item.number}}票
 						</view>
 					</view>
 				</view>
@@ -44,15 +23,14 @@
 </template>
 
 <script>
+	import baseUrl from '@/util/baseUrl';
 	export default {
 		data() {
 			return {
+				data: {},
 				chartData: {},
 				opts: {},
-				bjWidth: "",
-				nmWidth: "",
-				xjWidth: "",
-
+				resultArray: [], //投票结果
 			}
 		},
 		onShow() {
@@ -79,6 +57,9 @@
 					}]
 				},
 				extra: {
+					tooltip: {
+						showBox: false
+					},
 					column: {
 						width: 20,
 						activeBgColor: "#000000",
@@ -92,35 +73,75 @@
 		},
 		methods: {
 			getServerData() {
-				//模拟从服务器获取数据时的延时
-				setTimeout(() => {
-					//模拟服务器返回数据，如果数据格式和标准格式不同，需自行按下面的格式拼接
+				uni.request({
+					url: `${baseUrl}/auth/vote/list`,
+					success: (response) => {
+						this.data = response.data.rows;
+						console.log(response);
 
-					this.bjWidth = '20%'
-					let res = {
-						categories: ['北京', '内蒙', '新疆'],
-						series: [{
-							name: '票数',
-							textColor: '#FFFFFF',
-							data: [{
 
-									color: '#FB243A',
-									value: 45,
+						let desc = function(a, b) {
+							return b - a
+						};
+						let asc = function(a, b) {
+							return a - b
+						};
+						let numArray = [];
+						this.data.forEach(item => {
+							numArray.push(item.number)
+						})
+						let maxNumber = numArray.sort(desc)[0];
+						let showMax = 0; //线条最大值，用于显示票数占比
+						if (maxNumber > 10) {
+							showMax = maxNumber + parseInt(maxNumber / 4)
+						} else {
+							showMax = maxNumber;
+						}
 
-								},
-								{
-									color: '#24F8F2',
-									value: 342
-								},
-								{
-									color: '#3EAEFF',
-									value: 35
-								}
-							]
-						}]
-					};
-					this.chartData = JSON.parse(JSON.stringify(res));
-				}, 500);
+						//投票结果
+						this.resultArray = [];
+						this.data.forEach(item => {
+							let obj = {
+								cityName: item.cityName,
+								background: item.cityName == "北京" ? '#FF1E1E' : item.cityName ==
+									"内蒙" ? '#24F8F2' : item.cityName == "新疆" ? '#3EAEFF' : '',
+								number: item.number,
+								percent: item.number > 0 ? parseFloat(item.number / showMax) *
+									100 : 0
+							}
+							this.resultArray.push(obj);
+						})
+
+
+						let res = {
+							categories: ['北京', '内蒙', '新疆'],
+							series: [{
+								name: '',
+								textColor: '#FFFFFF',
+								format: 'voteFormat',
+								data: [{
+										color: '#FF1E1E',
+										value: this.data.filter(res => res.cityName == '北京')[0]
+											.number,
+
+									},
+									{
+										color: '#24F8F2',
+										value: this.data.filter(res => res.cityName == '内蒙')[0]
+											.number,
+									},
+									{
+										color: '#3EAEFF',
+										value: this.data.filter(res => res.cityName == '新疆')[0]
+											.number,
+									}
+								]
+							}]
+						};
+						this.chartData = JSON.parse(JSON.stringify(res));
+
+					}
+				});
 			}
 		},
 	}
@@ -128,7 +149,7 @@
 
 <style lang="scss" scoped>
 	.content-box {
-		height: calc(100vh - 44px);
+		height: 100vh;
 		background: url('@/static/vote/result-bgk.png') no-repeat;
 		background-size: cover;
 
